@@ -17,7 +17,7 @@ namespace StartWith
     public class ModTemplatePlugin : BaseUnityPlugin
     {
         internal const string ModName = "StarWith";
-        internal const string ModVersion = "1.0.0";
+        internal const string ModVersion = "1.0.1";
         internal const string Author = "WackyMole";
         private const string ModGUID = Author + "." + ModName;
         private static string ConfigFileName = ModGUID + ".cfg";
@@ -74,6 +74,8 @@ namespace StartWith
 
         private static void StartingitemPrefab()
 		{
+            if (firstTime)
+            {
             string goodvalue = (string)SpawnWithConfig.BoxedValue;
             ItemManagerModTemplateLogger.LogInfo($"ReadConfigValues called {goodvalue}");
 
@@ -81,21 +83,19 @@ namespace StartWith
             Dictionary<string, string> GoodDictionary =
                        t.Select(item => item.Split(':')).ToDictionary(s => s[0], s => s[1]);
 
-            if (firstTime)
-			{
-                ItemManagerModTemplateLogger.LogInfo("New Starting Item Set");
-				Inventory inventory = ((Humanoid)Player.m_localPlayer).m_inventory;
-                foreach (var item in GoodDictionary)
-                {
+            ItemManagerModTemplateLogger.LogInfo("New Starting Item Set");
+			Inventory inventory = ((Humanoid)Player.m_localPlayer).m_inventory;
+            foreach (var item in GoodDictionary)
+            {
                     
-                    int num = 1;
-                    bool isParsable = Int32.TryParse(item.Value, out num);
-                    if (!isParsable)
-                        num = 1;
-                    ItemManagerModTemplateLogger.LogInfo($"Item {item.Key} with amount {num} being added to new Character");
-                    inventory.AddItem(item.Key, num, 1, 0, 0L, "");
-                }
-				firstTime = false;
+                int num = 1;
+                bool isParsable = Int32.TryParse(item.Value, out num);
+                if (!isParsable)
+                    num = 1;
+                ItemManagerModTemplateLogger.LogInfo($"Item {item.Key} with amount {num} being added to new Character");
+                inventory.AddItem(item.Key, num, 1, 0, 0L, "");
+            }
+			firstTime = false;
 			}
 		}
 

@@ -4,18 +4,21 @@ using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
-using ItemManager;
 using ServerSync;
 using UnityEngine;
+using System.Collections;
+using System.Collections.Generic;
+using System;
+using System.Linq;
 
-namespace ItemManagerModTemplate
+namespace StartWith
 {
     [BepInPlugin(ModGUID, ModName, ModVersion)]
     public class ModTemplatePlugin : BaseUnityPlugin
     {
-        internal const string ModName = "ItemManagerModTemplate";
+        internal const string ModName = "StarWith";
         internal const string ModVersion = "1.0.0";
-        internal const string Author = "azumatt";
+        internal const string Author = "WackyMole";
         private const string ModGUID = Author + "." + ModName;
         private static string ConfigFileName = ModGUID + ".cfg";
         private static string ConfigFileFullPath = Paths.ConfigPath + Path.DirectorySeparatorChar + ConfigFileName;
@@ -30,55 +33,80 @@ namespace ItemManagerModTemplate
         private static readonly ConfigSync ConfigSync = new(ModGUID)
             { DisplayName = ModName, CurrentVersion = ModVersion, MinimumRequiredVersion = ModVersion };
 
+        private static bool firstTime = false;
+
+
+        [HarmonyPatch(typeof(Game), "SpawnPlayer")]
+		private static class Game_OnNewCharacterDone_PatchSpawnWith
+		{
+			[HarmonyPostfix]
+			private static void Postfix()
+			{
+				{
+					StartingitemPrefab();
+				}
+			}
+		}
+
+		[HarmonyPatch(typeof(FejdStartup), "OnNewCharacterDone")]
+		private static class FejdStartup_OnNewCharacterDone_PatchSpawnWith
+		{
+			private static void Postfix()
+			{
+				StartingFirsttime();
+
+			}
+
+		}
+
         public void Awake()
         {
             _serverConfigLocked = config("General", "Force Server Config", true, "Force Server Config");
             _ = ConfigSync.AddLockingConfigEntry(_serverConfigLocked);
 
-            Item ironFangAxe = new("ironfang", "IronFangAxe", "IronFang");
-            ironFangAxe.Name.English("Iron Fang Axe"); // You can use this to fix the display name in code
-            ironFangAxe.Description.English("A sharp blade made of iron.");
-            ironFangAxe.Name.German("Eisenzahnaxt"); // Or add translations for other languages
-            ironFangAxe.Description.German("Eine sehr scharfe Axt, bestehend aus Eisen und Wolfszähnen.");
-            ironFangAxe.Crafting.Add("MyAmazingCraftingStation",
-                3); // Custom crafting stations can be specified as a string
-            ironFangAxe.RequiredItems.Add("Iron", 120);
-            ironFangAxe.RequiredItems.Add("WolfFang", 20);
-            ironFangAxe.RequiredItems.Add("Silver", 40);
-            ironFangAxe.RequiredUpgradeItems
-                .Add("Iron", 20); // Upgrade requirements are per item, even if you craft two at the same time
-            ironFangAxe.RequiredUpgradeItems.Add("Silver",
-                10); // 10 Silver: You need 10 silver for level 2, 20 silver for level 3, 30 silver for level 4
-            ironFangAxe.CraftAmount = 2; // We really want to dual wield these
-
-
-            // If you have something that shouldn't go into the ObjectDB, like vfx or sfx that only need to be added to ZNetScene
-            GameObject
-                axeVisual = ItemManager.PrefabManager.RegisterPrefab("ironfang",
-                    "axeVisual"); // If our axe has a special visual effect, like a glow, we can skip adding it to the ObjectDB this way
-            GameObject axeSound =
-                ItemManager.PrefabManager.RegisterPrefab("ironfang", "axeSound"); // Same for special sound effects
-
+            SpawnWithConfig = config("General", "SpawnWithList", "Stone:2,", "You can add starting items by \"Prefab:amount,Item2Prefab:Item2Amount\" - Like \"Stone:2,\" - No spaces" );
 
             Assembly assembly = Assembly.GetExecutingAssembly();
             _harmony.PatchAll(assembly);
-            SetupWatcher();
+
         }
 
+
+        private static void StartingitemPrefab()
+		{
+            string goodvalue = (string)SpawnWithConfig.BoxedValue;
+            ItemManagerModTemplateLogger.LogInfo($"ReadConfigValues called {goodvalue}");
+
+            string[] t = goodvalue.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+            Dictionary<string, string> GoodDictionary =
+                       t.Select(item => item.Split(':')).ToDictionary(s => s[0], s => s[1]);
+
+            if (firstTime)
+			{
+                ItemManagerModTemplateLogger.LogInfo("New Starting Item Set");
+				Inventory inventory = ((Humanoid)Player.m_localPlayer).m_inventory;
+                foreach (var item in GoodDictionary)
+                {
+                    
+                    int num = 1;
+                    bool isParsable = Int32.TryParse(item.Value, out num);
+                    if (!isParsable)
+                        num = 1;
+                    ItemManagerModTemplateLogger.LogInfo($"Item {item.Key} with amount {num} being added to new Character");
+                    inventory.AddItem(item.Key, num, 1, 0, 0L, "");
+                }
+				firstTime = false;
+			}
+		}
+
+        private static void StartingFirsttime()
+		{
+			firstTime = true;
+
+		}
         private void OnDestroy()
         {
             Config.Save();
-        }
-
-        private void SetupWatcher()
-        {
-            FileSystemWatcher watcher = new(Paths.ConfigPath, ConfigFileName);
-            watcher.Changed += ReadConfigValues;
-            watcher.Created += ReadConfigValues;
-            watcher.Renamed += ReadConfigValues;
-            watcher.IncludeSubdirectories = true;
-            watcher.SynchronizingObject = ThreadingHelper.SynchronizingObject;
-            watcher.EnableRaisingEvents = true;
         }
 
         private void ReadConfigValues(object sender, FileSystemEventArgs e)
@@ -100,6 +128,7 @@ namespace ItemManagerModTemplate
         #region ConfigOptions
 
         private static ConfigEntry<bool>? _serverConfigLocked;
+        private static ConfigEntry<string>? SpawnWithConfig;
 
         private ConfigEntry<T> config<T>(string group, string name, T value, ConfigDescription description,
             bool synchronizedSetting = true)

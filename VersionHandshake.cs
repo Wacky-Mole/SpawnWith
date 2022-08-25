@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using HarmonyLib;
 
-namespace ItemManagerModTemplate
+namespace StartWith
 {
     [HarmonyPatch(typeof(ZNet), nameof(ZNet.OnNewConnection))]
     public static class RegisterAndCheckVersion

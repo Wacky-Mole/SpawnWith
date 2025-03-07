@@ -1,5 +1,6 @@
 | `Version` | `Update Notes`    |
 |-----------|-------------------|
+| 1.0.7     | - Update ServerSync |
 | 1.0.6     | - Update Witch Bog |
 | 1.0.5     | - Update Witch Bog |
 | 1.0.4     | - Updated SS  + 217.46 Update |
